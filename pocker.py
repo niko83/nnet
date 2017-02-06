@@ -1,6 +1,12 @@
 
 import random
 import consts
+import itertools
+import logging
+logging.basicConfig()
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 class Game():
@@ -9,37 +15,48 @@ class Game():
         self._pl1 = pl1
         self._pl2 = pl2
         self.pl_step = itertools.cycle([pl1, pl2])
-        self.priz = 0
+        self.prize = 0
         self.can_reraise = False
         self.bed = 0
 
     def next_turn(self):
-        for pl in [self.pl1, self.pl2]:
+        for pl in [self._pl1, self._pl2]:
             pl.balance -= consts.BLAIND_AMOUNT
-            self.priz += consts.BLAIND_AMOUNT
+            self.prize += consts.BLAIND_AMOUNT
             pl.current_card = random.choice(consts.CARDS)
-        next(self.pl_step).turn(game)
+            logger.info("%s got card: %s", pl, pl.current_card)
+        return next(self.pl_step).turn(game)
 
     def do_bed(self, pl, amount):
+        logger.info('%s do bed %d', pl, amount)
         pl.balance -= amount
-        self.priz += amount
+        self.prize += amount
         self.bed = amount
         next(self.pl_step).turn(game)
 
     def finish_game(self):
-        if winner:
-            winner.balance += self.priz
+        if self.winner:
+            self.winner.balance += self.prize
+        else:
+            self._pl1.balance += int(self.prize/2)
+            self._pl2.balance += int(self.prize/2)
+
+        logger.info('Winner: %s. %s %s', self.winner, self._pl1, self._pl2)
+
+        self.winner = None
         self.prize = 0
         self.bed = None
         self.can_reraise = False
 
     def passing(self, pl):
+        logger.info('%s passing', pl)
         competitor = self._get_competitor(pl)
-        competitor.balance += self.priz
+        competitor.balance += self.prize
         self.winner = competitor
         self.finish_game()
 
     def check(self, pl):
+        logger.info('%s check', pl)
         self.prize += self.bed
         pl.balance -= self.bed
         self.bed = None
@@ -54,6 +71,7 @@ class Game():
         self.finish_game()
 
     def reraise(self, pl, reraise):
+        logger.info('%s reraise %s', pl, reraise)
         self.prize += self.bed
         pl.balance -= self.bed
         self.prize += reraise
@@ -61,22 +79,25 @@ class Game():
         self.can_reraise = False
 
     def _get_competitor(self, pl):
-        if pl is self.pl1:
-            return self.pl2
-        return self.pl1
+        if pl is self._pl1:
+            return self._pl2
+        return self._pl1
 
 
 class Player():
     def __init__(self, name='Name'):
         self.balance = 100
         self.current_card = None
+        self.name = name
+
+    def __repr__(self):
+        return "%s(%s)" % (self.name, self.balance)
 
     def my_desigion(self):
         [
             lambda: game.passing(self),
             lambda: game.check(self),
-        ] + [lambda : game.reraise(self, c) for c in consts.COUNTS]
-
+        ] + [lambda: game.reraise(self, c) for c in consts.COUNTS]
 
     def turn(self, game):
         if game.bed is None:
@@ -94,14 +115,16 @@ class Player():
             else:
                 game.passing(self)
 
-
     def raise_money(self, game):
         pass
 
 
-pl1 = Player('Boris')
-pl2 = Player('Ivan')
+if __name__ == '__main__':
 
-game = Game(pl1, pl2)
+    pl1 = Player('Boris')
+    pl2 = Player('Ivan')
+    print(pl1, pl2)
 
-game.next_turn()
+    game = Game(pl1, pl2)
+
+    game.next_turn()
