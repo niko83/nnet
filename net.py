@@ -1,74 +1,69 @@
-import math
 import numpy as np
-from consts import CARDS
+from consts import CARDS, COUNTS
+from pocker import Player, Game
+from utils import activation, derivative_activation, rand
 
 
+class Net():
 
- #  https://habrahabr.ru/post/198268/
+    def __init__(self):
+        input_layer = (
+            CARDS +
+            ["check", "c_check"] +
+            ["reraise_%s" % c for c in COUNTS] +
+            ["c_reraise_%s" % c for c in COUNTS] +
+            ["bed_%s" % c for c in COUNTS] +
+            ["c_bed_%s" % c for c in COUNTS]
+        )
 
-def sigmoid(x):
-    return 1 / (1 + math.exp(-x))
+        self.attr_to_key = dict((a, idx) for idx, a in enumerate(input_layer))
+        self.size_level_1 = 25
+        self.output_level = [
+            ("check", ),
+            ("pass", ),
+        ] + [("bed", c) for c in COUNTS] + [("reraise", c) for c in COUNTS]
+        self.size_output_level = len(self.output_level)
 
+        self.W = rand(len(input_layer), self.size_level_1)
+        self.W2 = rand(self.size_level_1, self.size_output_level)
 
-def derivative_sigmoid(x):
-    return sigmoid(x)*(1-sigmoid(x))
+    def get_decigion(self, data_set):
+        summator_l1 = np.zeros(self.size_level_1)
+        for d in data_set:
+            for n1_idx, w in enumerate(self.W[self.attr_to_key[d]]):
+                summator_l1[n1_idx] += w * 1
+        summator_l1 = [activation(x) for x in summator_l1]
 
+        summator_output_level = np.zeros(self.size_output_level)
+        for idx_l1, d in enumerate(summator_l1):
+            for n2_idx, w in enumerate(self.W2[idx_l1]):
+                summator_output_level[n2_idx] += w * 1
 
-def bip_sigmoid(x):
-    return 1 / (1 + math.exp(-x)) - 1
+        summator_output_level = [activation(x) for x in summator_output_level]
 
+        return sorted(
+            zip(self.output_level, summator_output_level),
+            key=lambda x: x[1],
+            reverse=True,
+        )
 
-def derivative_bip_sigmoid(x):
-    return 0.5 * (1 + bip_sigmoid(x)) * (1 - bip_sigmoid(x))
-
-
-def activation(x):
-    return sigmoid(x)
-
-
-def derivative_activation(x):
-    derivative_sigmoid(x)
-
-
-
-
-def rand(x, y):
-    W = np.random.rand(x, y)
-    return [[j - 0.5 for j in I] for I in W]
-
-
-attr = CARDS
-attr_to_key = dict((a, idx) for idx, a in enumerate(attr))
-
-count_attr = len(attr)
-size_level_1 = 5
-size_output_level = 3
-
-W = rand(count_attr, size_level_1)
-W2 = rand(size_level_1, size_output_level)
-
-
-def calculate_level(data_set):
-    pass
-
-
-def teach(data_set):
-    summator_l1 = np.zeros(size_level_1)
-    for d in data_set:
-        for n1_idx, w in enumerate(W[attr_to_key[d]]):
-            summator_l1[n1_idx] += w * 1
-    summator_l1 = [activation(x) for x in summator_l1]
-
-    summator_output_level = np.zeros(size_output_level)
-    for idx_l1, d in enumerate(summator_l1):
-        for n2_idx, w in enumerate(W2[idx_l1]):
-            summator_output_level[n2_idx] += w * 1
-
-    summator_output_level = [activation(x) for x in summator_output_level]
-
-    return summator_output_level
+    def teach(self, data_set):
+        return
 
 
 if __name__ == '__main__':
-    data_set = ["K"]
-    print(teach(data_set))
+
+    nnet = Net()
+
+    pl1 = Player('Boris', nnet)
+    pl2 = Player('Ivan', nnet)
+
+    game = Game(pl1, pl2)
+    counter = 0
+    while pl1.balance > 0 and pl2.balance > 0:
+        counter += 1
+        game.next_turn()
+        if pl1.balance + pl2.balance != 200:
+            assert False
+
+    print(counter)
