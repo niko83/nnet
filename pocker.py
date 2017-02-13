@@ -25,10 +25,27 @@ class Game():
 
     @property
     def can_reraise(self):
+        if self.finished:
+            return False
         return self.step == 1
 
     @property
+    def can_check(self):
+        return not self.finished
+
+    @property
+    def can_pass(self):
+        if self.finished:
+            return False
+
+        if self.step == 0:
+            return False
+        return True
+
+    @property
     def can_bed(self):
+        if self.finished:
+            return False
         return self.step == 0
 
     def next_turn(self):
@@ -57,8 +74,7 @@ class Game():
         self.prize = 0
         self.bed = 0
         self.finished = True
-        self._pl1.steps = []
-        self._pl2.steps = []
+
 
     def do_bed(self, pl, amount):
         pl.balance -= amount
@@ -73,6 +89,8 @@ class Game():
     def do_pass(self, pl):
         logger.info('%s %s pass', self, pl)
         competitor = self._get_competitor(pl)
+        pl.add_step("pass")
+        self._get_competitor(pl).add_step("c_pass")
         self.winner = competitor
         self.finish_game()
 
@@ -132,13 +150,13 @@ class Player():
     def turn(self, game):
 
         if game.finished:
-            return
+            raise Exception()
 
         for action, _ in self.nnet.get_decigion(self.steps):
-            if action[0] == "pass":
+            if game.can_pass and action[0] == "pass":
                 game.do_pass(self)
                 break
-            elif action[0] == "check":
+            elif game.can_check and action[0] == "check":
                 game.do_check(self)
                 break
             elif game.can_bed and action[0] == "bed":
@@ -147,6 +165,9 @@ class Player():
             elif game.can_reraise and action[0] == "reraise":
                 game.reraise(self, action[1])
                 break
+
+        if game.finished:
+            return
 
         if not game.finished:
             raise Exception()

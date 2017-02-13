@@ -62,8 +62,18 @@ if __name__ == '__main__':
     counter = 0
     while pl1.balance > 0 and pl2.balance > 0:
         counter += 1
+
+        pl1_balance_before = pl1.balance
+        pl2_balance_before = pl2.balance
+
         game.next_turn()
         if pl1.balance + pl2.balance != 200:
             assert False
+
+        print(pl1.steps, pl1.balance - pl1_balance_before)
+        print(pl2.steps, pl2.balance - pl2_balance_before)
+
+        pl1.steps = []
+        pl2.steps = []
 
     print(counter)
