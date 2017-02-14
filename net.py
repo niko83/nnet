@@ -66,12 +66,13 @@ class Net():
             if out != decigion[0]:
                 continue
 
-            for z_idx, w2s in enumerate(self.W2):
-                asd = a * sig_k * self.summator_output_level[out_idx]
+            for w2s in self.W2:
+                w2s[out_idx] += a * sig_k
 
-
-
-        return
+        for z_idx, sum1 in enumerate(self.summator_l1):
+            sig_k = 0.05 * derivative_activation(sum1)
+            for ws in self.W:
+                ws[z_idx] += a * sig_k
 
 
 if __name__ == '__main__':
