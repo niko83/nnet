@@ -89,8 +89,8 @@ class Game():
     def do_pass(self, pl):
         logger.info('%s %s pass', self, pl)
         competitor = self._get_competitor(pl)
-        pl.add_step("pass")
-        self._get_competitor(pl).add_step("c_pass")
+        #  #  pl.add_step("pass")
+        #  #  self._get_competitor(pl).add_step("c_pass")
         self.winner = competitor
         self.finish_game()
 
