@@ -1,13 +1,15 @@
 import numpy as np
-from consts import CARDS, COUNTS
+from consts import CARDS, COUNTS, BALANCE, DIFF
+from pprint import pprint
 from pocker import Player, Game
 from utils import activation, derivative_activation, rand
+import sys
 
 
 class Net():
 
     def __init__(self):
-        input_layer = (
+        self.input_layer = (
             CARDS +
             ["check", "c_check"] +
             ["reraise_%s" % c for c in COUNTS] +
@@ -16,15 +18,16 @@ class Net():
             ["c_bed_%s" % c for c in COUNTS]
         )
 
-        self.attr_to_key = dict((a, idx) for idx, a in enumerate(input_layer))
-        self.size_level_1 = 25
+        self.attr_to_key = dict((a, idx) for idx, a in enumerate(self.input_layer))
         self.output_level = [
             ("check", ),
             ("pass", ),
         ] + [("bed", c) for c in COUNTS] + [("reraise", c) for c in COUNTS]
         self.size_output_level = len(self.output_level)
 
-        self.W = rand(len(input_layer), self.size_level_1)
+        self.size_level_1 = self.size_output_level
+
+        self.W = rand(len(self.input_layer), self.size_level_1)
         self.W2 = rand(self.size_level_1, self.size_output_level)
 
         self.summator_l1 = np.zeros(self.size_level_1)
@@ -39,8 +42,8 @@ class Net():
 
         self.summator_output_level = np.zeros(self.size_output_level)
         for idx_l1, d in enumerate(self.summator_l1):
-            for n2_idx, w in enumerate(self.W2[idx_l1]):
-                self.summator_output_level[n2_idx] += w * 1
+            for output_idx, w in enumerate(self.W2[idx_l1]):
+                self.summator_output_level[output_idx] += w * d
 
         self.summator_output_level = [activation(x) for x in self.summator_output_level]
 
@@ -50,15 +53,48 @@ class Net():
             reverse=True,
         )
 
+    def print_tree(self):
+        o = []
+        o.append("")
+        o.append("W:")
+
+        for input_idx, w in enumerate(self.W):
+            tpl = "{:12s}:" + "{:8.4f} " * len(w)
+            o.append(tpl.format(self.input_layer[input_idx], *w))
+
+        o.append("")
+        o.append("W2:")
+        o.append(
+            ("{:3}:" + "{:>16s} "*len(self.output_level)).format("", *self.output_level)
+        )
+        for z_idx, w in enumerate(self.W2):
+            tpl = "{:3}:" + "{:>16.4f} " * len(w)
+            o.append(tpl.format(z_idx, *w))
+
+        o.append("")
+        o.append("Decigions:")
+
+        for c in CARDS:
+            decigion = self.get_decigion([c])[0]
+            o.append("%3s %15s %10.5f" % (c, decigion[0], decigion[1]))
+            o.append(("             Sum1: " + "{:8.4f}"*len(self.summator_l1)).format(*self.summator_l1))
+
+            o.append(("       Sum output: " + "{:>16s}"*len(self.output_level)).format(*self.output_level))
+            o.append(("                   " + "{:>16.4f}"*len(self.summator_output_level)).format(*self.summator_output_level))
+
+        return '\n'.join(o)
+
+
     def teach(self, data_set, factor):
         decigion = self.get_decigion(data_set)[0]
         yk = decigion[1]
-        a = abs(factor / 10)
-        diff = 0.05
+        a = abs(factor / 100)
         if factor > 0:
-            tk = min(yk + diff, 1)
+            tk = min(yk + DIFF, 1)
         elif factor < 0:
-            tk = max(yk - diff, 0)
+            tk = max(yk - DIFF, 0)
+        else:
+            return
 
         sig_k = (tk - yk) * derivative_activation(yk)
 
@@ -70,7 +106,7 @@ class Net():
                 w2s[out_idx] += a * sig_k
 
         for z_idx, sum1 in enumerate(self.summator_l1):
-            sig_k = 0.05 * derivative_activation(sum1)
+            sig_k = DIFF * derivative_activation(sum1)
             for ws in self.W:
                 ws[z_idx] += a * sig_k
 
@@ -79,10 +115,17 @@ if __name__ == '__main__':
 
     nnet = Net()
 
+    #  sys.exit(1)
+
     pl1 = Player('Boris', nnet)
     pl2 = Player('Ivan', nnet)
 
     game = Game(pl1, pl2)
+
+    output = nnet.print_tree()
+    with open('/tmp/nnet_1', 'w') as f:
+        f.write(output)
+
     counter = 0
     while pl1.balance > 0 and pl2.balance > 0:
         counter += 1
@@ -91,12 +134,17 @@ if __name__ == '__main__':
         pl2_balance_before = pl2.balance
 
         game.next_turn()
-        assert pl1.balance + pl2.balance == 200
+        assert pl1.balance + pl2.balance == BALANCE * 2
 
         nnet.teach(pl1.steps, pl1.balance - pl1_balance_before)
         nnet.teach(pl2.steps, pl2.balance - pl2_balance_before)
 
         pl1.steps = []
         pl2.steps = []
+
+
+    output = nnet.print_tree()
+    with open('/tmp/nnet_2', 'w') as f:
+        f.write(output)
 
     print(counter)

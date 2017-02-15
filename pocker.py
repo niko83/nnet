@@ -3,7 +3,7 @@ import random
 import consts
 import itertools
 import logging
-logging.basicConfig()
+#  logging.basicConfig()
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -135,7 +135,7 @@ class Game():
 
 class Player():
     def __init__(self, name, nnet):
-        self.balance = 100
+        self.balance = consts.BALANCE
         self.current_card = None
         self.name = name
         self.nnet = nnet
