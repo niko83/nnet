@@ -5,7 +5,7 @@ import numpy as np
 
 def rand(x, y):
     W = np.random.rand(x, y)
-    return [[j - 0.5 for j in I] for I in W]
+    return [[(j - 0.5)/2 for j in I] for I in W]
 
 
 def sigmoid(x):

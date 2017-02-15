@@ -2,7 +2,9 @@ import numpy as np
 from consts import CARDS, COUNTS, BALANCE, DIFF
 from pprint import pprint
 from pocker import Player, Game
+from copy import deepcopy
 from utils import activation, derivative_activation, rand
+from termcolor import colored
 import sys
 
 
@@ -65,7 +67,7 @@ class Net():
         o.append("")
         o.append("W2:")
         o.append(
-            ("{:3}:" + "{:>16s} "*len(self.output_level)).format("", *self.output_level)
+            ("{:3s}:" + "{:>16s} "*len(self.output_level)).format(".", *[str(i) for i in self.output_level])
         )
         for z_idx, w in enumerate(self.W2):
             tpl = "{:3}:" + "{:>16.4f} " * len(w)
@@ -75,12 +77,38 @@ class Net():
         o.append("Decigions:")
 
         for c in CARDS:
-            decigion = self.get_decigion([c])[0]
+            for decigion in self.get_decigion([c]):
+                if decigion[0][0] in ('bed', 'check'):
+                    break
             o.append("%3s %15s %10.5f" % (c, decigion[0], decigion[1]))
             o.append(("             Sum1: " + "{:8.4f}"*len(self.summator_l1)).format(*self.summator_l1))
 
-            o.append(("       Sum output: " + "{:>16s}"*len(self.output_level)).format(*self.output_level))
+            o.append(("       Sum output: " + "{:>16s}"*len(self.output_level)).format(*[str(i) for i in self.output_level]))
             o.append(("                   " + "{:>16.4f}"*len(self.summator_output_level)).format(*self.summator_output_level))
+
+        return '\n'.join(o)
+
+    def print_tree_diff(self, before_W2, before_decigions):
+        o = []
+        o.append("--------------------------------")
+        o.append(colored("W2:", 'green'))
+
+
+        o.append(("{:12s}:" + "{:>18s}"*len(self.output_level)).format("", *[str(i) for i in self.output_level]))
+
+        for input_idx, W in enumerate(self.W2):
+            tpl = "{:12s}:" + "{:18s} " * len(W)
+            w = []
+            for w_idx, w_data in enumerate(W):
+                if w_data > before_W2[input_idx][w_idx]:
+                    clr = 'green'
+                elif w_data < before_W2[input_idx][w_idx]:
+                    clr = 'red'
+                else:
+                    clr = 'yellow'
+                w.append(colored('%.4f' % (w_data-before_W2[input_idx][w_idx]), clr))
+
+            o.append(tpl.format(str(input_idx), *w))
 
         return '\n'.join(o)
 
@@ -88,7 +116,7 @@ class Net():
     def teach(self, data_set, factor):
         decigion = self.get_decigion(data_set)[0]
         yk = decigion[1]
-        a = abs(factor / 100)
+        a = abs(factor / 10)
         if factor > 0:
             tk = min(yk + DIFF, 1)
         elif factor < 0:
@@ -108,23 +136,27 @@ class Net():
         for z_idx, sum1 in enumerate(self.summator_l1):
             sig_k = DIFF * derivative_activation(sum1)
             for ws in self.W:
-                ws[z_idx] += a * sig_k
+                if factor > 0:
+                    ws[z_idx] += a * sig_k
+                elif factor < 0:
+                    ws[z_idx] -= a * sig_k
 
 
 if __name__ == '__main__':
 
     nnet = Net()
+    nnet2 = Net()
 
     #  sys.exit(1)
 
     pl1 = Player('Boris', nnet)
-    pl2 = Player('Ivan', nnet)
+    pl2 = Player('Ivan', nnet2)
 
     game = Game(pl1, pl2)
 
-    output = nnet.print_tree()
-    with open('/tmp/nnet_1', 'w') as f:
-        f.write(output)
+
+    #  with open('/tmp/nnet_1', 'w') as f:
+        #  f.write(output)
 
     counter = 0
     while pl1.balance > 0 and pl2.balance > 0:
@@ -133,18 +165,26 @@ if __name__ == '__main__':
         pl1_balance_before = pl1.balance
         pl2_balance_before = pl2.balance
 
+        before_W2 = deepcopy(nnet.W)
+        before_decigions = []
+        for c in CARDS:
+            before_decigions.append(nnet.get_decigion([c]))
+
         game.next_turn()
         assert pl1.balance + pl2.balance == BALANCE * 2
+        if counter % 1000 == 0:
+            print(pl1.balance, pl2.balance)
+
 
         nnet.teach(pl1.steps, pl1.balance - pl1_balance_before)
-        nnet.teach(pl2.steps, pl2.balance - pl2_balance_before)
+        print(pl1.steps)
+        print(pl1.balance - pl1_balance_before)
+        print(nnet.print_tree_diff(before_W2, before_decigions))
+        nnet2.teach(pl2.steps, pl2.balance - pl2_balance_before)
 
         pl1.steps = []
         pl2.steps = []
 
-
-    output = nnet.print_tree()
-    with open('/tmp/nnet_2', 'w') as f:
-        f.write(output)
+    print(nnet.print_tree())
 
     print(counter)
