@@ -22,8 +22,8 @@ class Net():
 
         self.attr_to_key = dict((a, idx) for idx, a in enumerate(self.input_layer))
         self.output_level = [
-            ("check", ),
-            ("pass", ),
+            ("check", '_'),
+            ("pass", '_'),
         ] + [("bed", c) for c in COUNTS] + [("reraise", c) for c in COUNTS]
         self.size_output_level = len(self.output_level)
 
@@ -94,10 +94,13 @@ class Net():
         o.append(colored("W2:", 'green'))
 
 
-        o.append(("{:12s}:" + "{:>18s}"*len(self.output_level)).format("", *[str(i) for i in self.output_level]))
+        o.append(
+            ("{:12s}:" + "{:>25s}"*len(self.output_level)).format(
+                "", *[colored('%s_%s' % (i[0], i[1]),'white') for i in self.output_level]
+            ))
 
         for input_idx, W in enumerate(self.W2):
-            tpl = "{:12s}:" + "{:18s} " * len(W)
+            tpl = "{:12s}:" + "{:>25s} " * len(W)
             w = []
             for w_idx, w_data in enumerate(W):
                 if w_data > before_W2[input_idx][w_idx]:
@@ -106,15 +109,21 @@ class Net():
                     clr = 'red'
                 else:
                     clr = 'yellow'
-                w.append(colored('%.4f' % (w_data-before_W2[input_idx][w_idx]), clr))
+                w.append(colored('{:>.4f}'.format(w_data-before_W2[input_idx][w_idx]), clr))
 
             o.append(tpl.format(str(input_idx), *w))
 
         return '\n'.join(o)
 
 
-    def teach(self, data_set, factor):
-        decigion = self.get_decigion(data_set)[0]
+    def teach(self, data_set, decigion, factor):
+        for d in self.get_decigion(data_set):
+            if d[0] == decigion:
+                decigion = d
+                break
+        else:
+            raise Exception()
+
         yk = decigion[1]
         a = abs(factor / 10)
         if factor > 0:
@@ -142,21 +151,42 @@ class Net():
                     ws[z_idx] -= a * sig_k
 
 
+class NetRandom(Net):
+    def get_decigion(self, steps):
+
+        return sorted(
+            zip(self.output_level, self.summator_output_level),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+
+
 if __name__ == '__main__':
 
     nnet = Net()
-    nnet2 = Net()
+    print(nnet.print_tree())
 
-    #  sys.exit(1)
+    before_W2 = deepcopy(nnet.W)
+    before_decigions = []
+    for c in CARDS:
+        before_decigions.append(nnet.get_decigion([c]))
+
+    for i in range(30):
+        nnet.teach(['A'], ("bed", 10), 30)
+        nnet.teach(['K'], ("bed", 5), 30)
+        #  nnet.teach(['Q'], ("pass", '_'), 30)
+        #  nnet.teach(['J'], ("pass", '_'), 30)
+
+    print(nnet.print_tree_diff(before_W2, before_decigions))
+    print(nnet.print_tree())
+
+    sys.exit(1)
+    nnet2 = Net()
 
     pl1 = Player('Boris', nnet)
     pl2 = Player('Ivan', nnet2)
 
     game = Game(pl1, pl2)
-
-
-    #  with open('/tmp/nnet_1', 'w') as f:
-        #  f.write(output)
 
     counter = 0
     while pl1.balance > 0 and pl2.balance > 0:
@@ -177,10 +207,13 @@ if __name__ == '__main__':
 
 
         nnet.teach(pl1.steps, pl1.balance - pl1_balance_before)
+        print('=======================')
         print(pl1.steps)
         print(pl1.balance - pl1_balance_before)
         print(nnet.print_tree_diff(before_W2, before_decigions))
         nnet2.teach(pl2.steps, pl2.balance - pl2_balance_before)
+        import ipdb; ipdb.set_trace()  # XXX BREAKPOINT
+
 
         pl1.steps = []
         pl2.steps = []
