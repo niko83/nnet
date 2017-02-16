@@ -13,7 +13,7 @@ class Net():
     def __init__(self):
         self.input_layer = (
             CARDS +
-            ["check", "c_check"] +
+            ["check__", "c_check"] +
             ["reraise_%s" % c for c in COUNTS] +
             ["c_reraise_%s" % c for c in COUNTS] +
             ["bed_%s" % c for c in COUNTS] +
@@ -138,16 +138,21 @@ class Net():
 
         return '\n'.join(o)
 
-
-    def teach(self, data_set, decigion, factor):
-        for d in self.get_decigion(data_set):
-            if d[0] == decigion:
-                decigion = d
+    def teach(self, data_set, decigion_r, factor):
+        for d in self.output_level:
+            if decigion_r[0] == d: # and d[0] in CARDS:
+                decigion = decigion_r[0]
+                value = decigion_r[1]
                 break
         else:
+            print(decigion)
+            print(self.output_level)
             raise Exception()
 
-        yk = decigion[1]
+        yk = value
+        if yk == "_":
+            import ipdb; ipdb.set_trace()  # XXX BREAKPOINT
+
         a = abs(factor / 10)
         if factor > 0:
             tk = min(yk + DIFF, 1)
@@ -159,7 +164,7 @@ class Net():
         sig_k = (tk - yk) * derivative_activation(yk)
 
         for out_idx, out in enumerate(self.output_level):
-            if out != decigion[0]:
+            if out != decigion:
                 continue
 
             for w2s in self.W2:
@@ -167,11 +172,13 @@ class Net():
 
         for z_idx, sum1 in enumerate(self.summator_l1):
             sig_k = DIFF * derivative_activation(sum1)
-            for ws in self.W:
-                if factor > 0:
-                    ws[z_idx] += a * sig_k
-                elif factor < 0:
-                    ws[z_idx] -= a * sig_k
+            for in_idx, ws in enumerate(self.W):
+                idx = [self.attr_to_key[d] for d in data_set]
+                if in_idx in idx:
+                    if factor > 0:
+                        ws[z_idx] += a * sig_k
+                    elif factor < 0:
+                        ws[z_idx] -= a * sig_k
 
 
 class NetRandom(Net):
@@ -189,24 +196,24 @@ if __name__ == '__main__':
     nnet = Net()
     #  print(nnet.print_tree())
 
-    before_W = deepcopy(nnet.W)
-    before_W2 = deepcopy(nnet.W2)
-    before_decigions = []
-    for c in CARDS:
-        before_decigions.append(nnet.get_decigion([c]))
+    #  before_W = deepcopy(nnet.W)
+    #  before_W2 = deepcopy(nnet.W2)
+    #  before_decigions = []
+    #  for c in CARDS:
+        #  before_decigions.append(nnet.get_decigion([c]))
 
-    nnet.teach(['A'], ("bed", 10), 30)
-        #  nnet.teach(['Q'], ("pass", '_'), 30)
-        #  nnet.teach(['J'], ("pass", '_'), 30)
+    #  nnet.teach(['A'], ("bed", 10), 30)
+        #  #  nnet.teach(['Q'], ("pass", '_'), 30)
+        #  #  nnet.teach(['J'], ("pass", '_'), 30)
 
-    print(nnet.print_tree_diff(before_W, before_W2, before_decigions))
-    #  print(nnet.print_tree())
+    #  print(nnet.print_tree_diff(before_W, before_W2, before_decigions))
+    #  #  print(nnet.print_tree())
 
-    sys.exit(1)
-    nnet2 = Net()
+    #  sys.exit(1)
+    #  nnet2 = Net()
 
     pl1 = Player('Boris', nnet)
-    pl2 = Player('Ivan', nnet2)
+    pl2 = Player('Ivan', nnet)
 
     game = Game(pl1, pl2)
 
@@ -217,7 +224,8 @@ if __name__ == '__main__':
         pl1_balance_before = pl1.balance
         pl2_balance_before = pl2.balance
 
-        before_W2 = deepcopy(nnet.W)
+        before_W = deepcopy(nnet.W)
+        before_W2 = deepcopy(nnet.W2)
         before_decigions = []
         for c in CARDS:
             before_decigions.append(nnet.get_decigion([c]))
@@ -227,18 +235,32 @@ if __name__ == '__main__':
         if counter % 1000 == 0:
             print(pl1.balance, pl2.balance)
 
+        for d in pl1.decigions:
+            nnet.teach(pl1.steps, d, pl1.balance - pl1_balance_before)
 
-        nnet.teach(pl1.steps, pl1.balance - pl1_balance_before)
-        print('=======================')
-        print(pl1.steps)
-        print(pl1.balance - pl1_balance_before)
-        print(nnet.print_tree_diff(before_W2, before_decigions))
-        nnet2.teach(pl2.steps, pl2.balance - pl2_balance_before)
-        import ipdb; ipdb.set_trace()  # XXX BREAKPOINT
+        #  print('1111111111=======================')
+        #  print(pl1.steps)
+        #  print(pl1.balance - pl1_balance_before)
+        #  print(nnet.print_tree_diff(before_W, before_W2, before_decigions))
 
+
+        before_W = deepcopy(nnet.W)
+        before_W2 = deepcopy(nnet.W2)
+        before_decigions = []
+        for c in CARDS:
+            before_decigions.append(nnet.get_decigion([c]))
+        for d in pl2.decigions:
+            nnet.teach(pl2.steps, d, pl2.balance - pl2_balance_before)
+
+        #  print('2222222222=======================')
+        #  print(pl2.steps)
+        #  print(pl2.balance - pl2_balance_before)
+        #  print(nnet.print_tree_diff(before_W, before_W2, before_decigions))
 
         pl1.steps = []
         pl2.steps = []
+        pl1.decigions = []
+        pl2.decigions = []
 
     print(nnet.print_tree())
 

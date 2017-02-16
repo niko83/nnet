@@ -4,5 +4,5 @@ COUNTS = [5, 10, 15, 20, 25]
 BLAIND_AMOUNT = 2
 DIFF = 0.05
 
-CARDS = ['J', 'Q', 'K', 'A']
-COUNTS = [5, 10]
+#  CARDS = ['J', 'Q', 'K', 'A']
+#  COUNTS = [5, 10]
