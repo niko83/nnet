@@ -88,21 +88,44 @@ class Net():
 
         return '\n'.join(o)
 
-    def print_tree_diff(self, before_W2, before_decigions):
+    def print_tree_diff(self, before_W, before_W2, before_decigions):
         o = []
+
+        o.append("--------------------------------")
+        o.append(colored("W:", 'cyan'))
+
+        o.append(
+            ("{:12s}:" + "{:>25s}"*self.size_level_1).format(
+                "", *[colored(str(i),'white') for i in range(self.size_level_1)]
+            ))
+
+        for input_idx, W in enumerate(self.W):
+            tpl = "{:12s}:" + "{:>25s} " * len(W)
+            w = []
+            for w_idx, w_data in enumerate(W):
+                if w_data > before_W[input_idx][w_idx]:
+                    clr = 'green'
+                elif w_data < before_W[input_idx][w_idx]:
+                    clr = 'red'
+                else:
+                    clr = 'yellow'
+                w.append(colored('{:>.4f}'.format(w_data-before_W[input_idx][w_idx]), clr))
+
+            o.append(tpl.format(self.input_layer[input_idx], *w))
+
+
         o.append("--------------------------------")
         o.append(colored("W2:", 'green'))
-
 
         o.append(
             ("{:12s}:" + "{:>25s}"*len(self.output_level)).format(
                 "", *[colored('%s_%s' % (i[0], i[1]),'white') for i in self.output_level]
             ))
 
-        for input_idx, W in enumerate(self.W2):
-            tpl = "{:12s}:" + "{:>25s} " * len(W)
+        for input_idx, W2 in enumerate(self.W2):
+            tpl = "{:12s}:" + "{:>25s} " * len(W2)
             w = []
-            for w_idx, w_data in enumerate(W):
+            for w_idx, w_data in enumerate(W2):
                 if w_data > before_W2[input_idx][w_idx]:
                     clr = 'green'
                 elif w_data < before_W2[input_idx][w_idx]:
@@ -164,21 +187,20 @@ class NetRandom(Net):
 if __name__ == '__main__':
 
     nnet = Net()
-    print(nnet.print_tree())
+    #  print(nnet.print_tree())
 
-    before_W2 = deepcopy(nnet.W)
+    before_W = deepcopy(nnet.W)
+    before_W2 = deepcopy(nnet.W2)
     before_decigions = []
     for c in CARDS:
         before_decigions.append(nnet.get_decigion([c]))
 
-    for i in range(30):
-        nnet.teach(['A'], ("bed", 10), 30)
-        nnet.teach(['K'], ("bed", 5), 30)
+    nnet.teach(['A'], ("bed", 10), 30)
         #  nnet.teach(['Q'], ("pass", '_'), 30)
         #  nnet.teach(['J'], ("pass", '_'), 30)
 
-    print(nnet.print_tree_diff(before_W2, before_decigions))
-    print(nnet.print_tree())
+    print(nnet.print_tree_diff(before_W, before_W2, before_decigions))
+    #  print(nnet.print_tree())
 
     sys.exit(1)
     nnet2 = Net()
